@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResQVision - Victim Detection Dashboard</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+    #map { height: 500px; border-radius: 1rem; }
+    .detected { background-color: #dc2626; color: white; padding: 0.2rem 0.5rem; border-radius: 5px; }
+    .safe { background-color: #16a34a; color: white; padding: 0.2rem 0.5rem; border-radius: 5px; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+  <!-- Header -->
+  <header class="bg-red-600 text-white py-4 shadow-lg">
+    <h1 class="text-center text-2xl font-semibold tracking-wide">🛰️ ResQVision – Victim Detection Dashboard</h1>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto mt-6 px-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- Map Section -->
+      <div class="bg-white shadow-lg rounded-2xl p-4">
+        <h2 class="text-lg font-semibold mb-2">Disaster Area Map</h2>
+        <div id="map"></div>
+      </div>
+
+      <!-- Detection Panel -->
+      <div class="bg-white shadow-lg rounded-2xl p-4">
+        <h2 class="text-lg font-semibold mb-2">Detection Feed</h2>
+        <video id="videoFeed" width="100%" controls autoplay loop muted class="rounded-xl shadow-md">
+          <source src="https://cdn.pixabay.com/vimeo/378203927/search-and-rescue-16197.mp4?width=640&hash=09bde0c7e42644b44dd8d26195c5858e2a8caa7a" type="video/mp4">
+        </video>
+        <div id="detectionStatus" class="mt-4 p-3 bg-gray-50 rounded-xl text-center text-sm font-medium">
+          <span class="safe">Status: Area Clear</span>
+        </div>
+        <div id="stats" class="mt-3 text-sm">
+          <p>🕒 Last update: <span id="time"></span></p>
+          <p>👁️ Detected Victims: <span id="count" class="font-bold">0</span></p>
+        </div>
+        <button id="simulateBtn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-xl shadow-md">
+          Simulate Detection
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-4 text-gray-600 mt-8">
+    <p>© 2025 ResQVision | Universitas Sulawesi Barat</p>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+    // Initialize map
+    const map = L.map('map').setView([-2.6833, 118.9333], 6); // Indonesia view
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Markers Layer
+    const victimsLayer = L.layerGroup().addTo(map);
+
+    // Function to simulate victim detection
+    const simulateBtn = document.getElementById('simulateBtn');
+    const countEl = document.getElementById('count');
+    const timeEl = document.getElementById('time');
+    const statusEl = document.getElementById('detectionStatus');
+
+    simulateBtn.addEventListener('click', () => {
+      victimsLayer.clearLayers();
+
+      const victims = [
+        { lat: -2.73, lon: 118.91 },
+        { lat: -2.70, lon: 118.97 },
+        { lat: -2.74, lon: 118.95 }
+      ];
+
+      victims.forEach(v => {
+        const marker = L.marker([v.lat, v.lon]).addTo(victimsLayer);
+        marker.bindPopup("<b>Detected Victim</b><br>GPS: " + v.lat.toFixed(4) + ", " + v.lon.toFixed(4));
+      });
+
+      countEl.textContent = victims.length;
+      timeEl.textContent = new Date().toLocaleTimeString();
+
+      statusEl.innerHTML = '<span class="detected">⚠️ Victims Detected in Danger Zone</span>';
+
+      // Optional alert sound
+      const audio = new Audio('https://www.soundjay.com/buttons/sounds/beep-07a.mp3');
+      audio.play();
+    });
+  </script>
+
+</body>
+</html>

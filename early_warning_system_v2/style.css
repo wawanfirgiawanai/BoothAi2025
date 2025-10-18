@@ -1,0 +1,170 @@
+:root {
+  --bg: #0c0c0c;
+  --card: #151515;
+  --muted: #a0a4ab;
+  --text: #e8eaed;
+  --accent: #2563eb;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, Segoe UI, Roboto, Arial;
+}
+
+/* ===== Header Global ===== */
+.appHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111;
+  color: #fff;
+  padding: 10px 16px;
+  border-bottom: 1px solid #333;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.appHeader h1 {
+  font-size: 16px;
+  margin: 0;
+}
+.appHeader nav a {
+  margin-left: 12px;
+  text-decoration: none;
+  color: #ccc;
+  font-size: 14px;
+}
+.appHeader nav a.active {
+  color: #fff;
+  font-weight: bold;
+}
+
+/* ===== Layout ===== */
+#app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: calc(100% - 48px); /* sisakan tinggi header */
+}
+
+/* ===== Sidebar ===== */
+#sidebar {
+  background: var(--card);
+  border-right: 1px solid #262626;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  position: relative;
+  min-width: 220px;
+  max-width: 520px;
+  resize: horizontal;
+}
+
+#resizer {
+  position: absolute;
+  top: 0; right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+}
+#resizer:hover {
+  background: #444;
+}
+
+/* ===== Panel & Section ===== */
+.panel {
+  padding: 12px;
+}
+
+section {
+  background: var(--bg);
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+section h2 {
+  font-size: 14px;
+  margin: 0 0 6px;
+  color: var(--accent);
+}
+
+/* ===== Inputs ===== */
+label {
+  display: block;
+  font-size: 12px;
+  margin: 6px 0 4px;
+  color: var(--muted);
+}
+input, select, button {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #2a2a2a;
+  background: #111;
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+button {
+  cursor: pointer;
+  background: #1d1d1d;
+}
+button:hover { background: #2a2a2a; }
+
+.note { font-size: 11px; color: var(--muted); }
+
+/* ===== Table ===== */
+.tableWrap {
+  overflow: auto;
+  max-height: 200px;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+th, td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #2a2a2a;
+}
+th {
+  position: sticky;
+  top: 0;
+  background: #151515;
+  color: var(--accent);
+  text-align: left;
+}
+
+/* ===== Main ===== */
+#main {
+  display: flex;
+  flex-direction: column;
+}
+#map {
+  flex: 1;
+}
+
+/* ===== Legend (Leaflet) ===== */
+.legend {
+  background: #121212;
+  border: 1px solid #2a2a2a;
+  color: #ddd;
+  padding: 8px;
+  border-radius: 8px;
+  line-height: 1.4;
+  font-size: 12px;
+}
+.legend span.sw {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: 2px;
+}

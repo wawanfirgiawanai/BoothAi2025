@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>EWS Curah Hujan + Prediksi (Leaflet)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+  <style>
+    :root { --bg:#0c0c0c; --card:#151515; --muted:#a0a4ab; --text:#e8eaed; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,Segoe UI,Roboto,Arial; }
+    #app { display:grid; grid-template-columns: 340px 1fr; grid-template-rows: auto 1fr; height:100%; }
+    header { grid-column: 1 / -1; padding:8px 12px; border-bottom:1px solid #262626; background:#0c0c0ccc; backdrop-filter: blur(6px); position:sticky; top:0; z-index:1000; }
+    h1 { font-size:16px; margin:0; }
+    aside { border-right:1px solid #262626; overflow:auto; }
+    .panel { padding:12px; }
+    .section { background:var(--card); border:1px solid #262626; border-radius:10px; padding:10px; margin-bottom:10px; }
+    label { display:block; font-size:12px; color:var(--muted); margin:6px 0 4px; }
+    select, input[type=number] { width:100%; padding:8px; border-radius:8px; border:1px solid #2a2a2a; background:#111; color:var(--text); }
+    button { padding:8px 10px; border-radius:8px; border:1px solid #2a2a2a; background:#1d1d1d; color:var(--text); cursor:pointer; }
+    button:hover { background:#262626; }
+    #map { height:100%; width:100%; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > * { flex:1 1 120px; }
+    .muted { color:var(--muted); font-size:12px; }
+    .list { font-size:13px; line-height:1.6; }
+    .legend {
+      background: #121212;
+      border: 1px solid #2a2a2a;
+      color: #ddd;
+      padding: 8px;
+      border-radius: 8px;
+      line-height: 1.5;
+      font-size: 12px;
+    }
+    .legend i {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>EWS Curah Hujan + Prediksi (Polewali Mandar)</h1>
+    </header>
+    <aside>
+      <div class="panel">
+        <div class="section">
+          <label>Mode</label>
+          <select id="mode">
+            <option value="historis">Historis</option>
+            <option value="prediksi">Prediksi</option>
+          </select>
+          <label>Bulan</label>
+          <select id="month"></select>
+          <label>SPI (k)</label>
+          <select id="spiK">
+            <option value="1">SPI-1</option>
+            <option value="3" selected>SPI-3</option>
+            <option value="6">SPI-6</option>
+            <option value="12">SPI-12</option>
+          </select>
+          <label>Ambang Kering (≤)</label>
+          <input id="thrDry" type="number" step="0.1" value="-1"/>
+          <label>Ambang Basah (≥)</label>
+          <input id="thrWet" type="number" step="0.1" value="1"/>
+          <button id="apply">Terapkan</button>
+        </div>
+      </div>
+    </aside>
+    <main>
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script>
+    // ===== Data Dummy =====
+    const RAIN = [
+      {station:"Polewali",lat:-3.4249,lon:119.3505,date:"2023-01",rain_mm:106},
+      {station:"Polewali",lat:-3.4249,lon:119.3505,date:"2023-02",rain_mm:96},
+      {station:"Polewali",lat:-3.4249,lon:119.3505,date:"2023-03",rain_mm:75}
+    ];
+
+    function unique(arr) { return [...new Set(arr)]; }
+    function groupBy(arr,key){return arr.reduce((a,c)=>(a[c[key]]??=[]).push(c),{});}
+    function rollingSum(vals,k){const out=[];let s=0;for(let i=0;i<vals.length;i++){s+=Number(vals[i]);if(i>=k)s-=Number(vals[i-k]);out.push(i>=k-1?s:null);}return out;}
+    function zscore(series){const vals=series.filter(v=>v!=null);if(vals.length<3)return series.map(_=>null);const mean=vals.reduce((a,b)=>a+b,0)/vals.length;const sd=Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/(vals.length-1));return series.map(v=>(v==null||sd===0)?null:(v-mean)/sd);}
+    function severityFromSPI(spi, thrDry, thrWet){
+      if (spi==null) return {label:'NA', color:'#888'};
+      if (spi <= Math.min(thrDry,-2)) return {label:'Extreme Drought', color:'#8B0000'};
+      if (spi <= Math.min(thrDry,-1.5)) return {label:'Severe Drought', color:'#B22222'};
+      if (spi <= thrDry) return {label:'Moderate Drought', color:'#DC143C'};
+      if (spi >= Math.max(thrWet,2)) return {label:'Extreme Wet', color:'#003399'};
+      if (spi >= Math.max(thrWet,1.5)) return {label:'Severe Wet', color:'#1E3A8A'};
+      if (spi >= thrWet) return {label:'Moderate Wet', color:'#2563EB'};
+      return {label:'Normal', color:'#22C55E'};
+    }
+    function buildSPI(k){
+      const byS=groupBy(RAIN,'station');const out=[];
+      for(const st in byS){
+        const rows=byS[st].slice().sort((a,b)=>a.date.localeCompare(b.date));
+        const vals=rows.map(r=>Number(r.rain_mm));
+        const rs=rollingSum(vals,k);
+        const spi=zscore(rs);
+        for(let i=0;i<rows.length;i++){out.push({...rows[i],spi_k:k,spi:spi[i]});}
+      }
+      return out;
+    }
+
+    // Map init
+    const map = L.map('map').setView([-3.42,119.35],10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OSM'}).addTo(map);
+
+    // Add marker
+    const marker = L.marker([-3.4249,119.3505]).addTo(map).bindPopup("Polewali");
+
+    // Month select
+    const months=unique(RAIN.map(r=>r.date)).sort();
+    const monthSel=document.getElementById('month');
+    months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;monthSel.appendChild(o);});
+
+    function applyStyling(){
+      const k=Number(document.getElementById('spiK').value);
+      const thrDry=Number(document.getElementById('thrDry').value);
+      const thrWet=Number(document.getElementById('thrWet').value);
+      const ym=monthSel.value;
+      const spied=buildSPI(k);
+      const cur=spied.find(r=>r.date===ym);
+      if(cur){
+        const sev=severityFromSPI(cur.spi,thrDry,thrWet);
+        marker.setPopupContent(`Station: ${cur.station}<br>SPI-${k}: ${cur.spi?.toFixed(2)}<br><b style="color:${sev.color}">${sev.label}</b>`);
+      }
+    }
+    document.getElementById('apply').addEventListener('click',applyStyling);
+
+    // ===== Legend on Map =====
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function (map) {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = `
+        <strong>Keterangan SPI</strong><br>
+        <i style="background:#8B0000"></i> Extreme Drought<br>
+        <i style="background:#B22222"></i> Severe Drought<br>
+        <i style="background:#DC143C"></i> Moderate Drought<br>
+        <i style="background:#22C55E"></i> Normal<br>
+        <i style="background:#2563EB"></i> Moderate Wet<br>
+        <i style="background:#1E3A8A"></i> Severe Wet<br>
+        <i style="background:#003399"></i> Extreme Wet<br>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+  </script>
+</body>
+</html>

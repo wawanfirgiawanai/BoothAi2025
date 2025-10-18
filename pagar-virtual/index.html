@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebGIS Virtual Fence</title>
+
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet.draw for geofence -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <!-- Turf for point-in-polygon -->
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+
+    <div id="sidebar">
+      <h2>🦬 WebGIS Virtual Fence</h2>
+
+      <div class="card">
+        <div class="row">
+          <label>Server Status:</label>
+          <span id="server-status" class="pill pill-gray">DISCONNECTED</span>
+        </div>
+        <div class="row">
+          <label>Data Source:</label>
+          <span id="data-source" class="pill pill-gray">SIMULATOR</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Virtual Fence</h3>
+        <p>Use the <b>polygon</b> / <b>rectangle</b> tools to draw a safe zone. Save &amp; load as needed.</p>
+        <div class="btn-group">
+          <button id="btn-save">💾 Save Fence</button>
+          <button id="btn-load">📂 Load Fence</button>
+          <button id="btn-clear">🧹 Clear Fence</button>
+        </div>
+
+        <div class="row">
+          <label>Breach Mode:</label>
+          <select id="breach-mode">
+            <option value="outside" selected>Out Zona</option>
+            <option value="inside">In Zona</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>Lost GPS Radius:</label>
+          <div>
+            <input id="lost-radius" type="number" min="10" step="10" value="200" style="width:90px"> m
+          </div>
+        </div>
+
+        <audio id="alarm" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+      </div>
+
+      <div class="card">
+        <h3>Cattle</h3>
+        <div id="animals"></div>
+      </div>
+
+      <div class="footer"><small>© 2025 WebGIS • Leaflet + Turf</small></div>
+    </div>
+  </div>
+
+  <script src="./assets/app.js"></script>
+</body>
+</html>

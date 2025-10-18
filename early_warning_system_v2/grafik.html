@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>EWS ARIMA – Grafik</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header aplikasi -->
+  <header class="appHeader">
+    <h1>EWS ARIMA</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="grafik.html" class="active">Grafik</a>
+    </nav>
+  </header>
+
+  <!-- Layout -->
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div id="resizer"></div>
+      <div class="panel">
+        <!-- Parameter SPI -->
+        <section>
+          <h2>Parameter SPI</h2>
+          <label>SPI (k bulan)</label>
+          <select id="spiK">
+            <option value="1">SPI-1</option>
+            <option value="3" selected>SPI-3</option>
+            <option value="6">SPI-6</option>
+            <option value="12">SPI-12</option>
+          </select>
+
+          <label><input type="checkbox" id="showHistoris" checked> Tampilkan Historis</label>
+          <label><input type="checkbox" id="showPrediksi"> Tampilkan Prediksi (ARIMA)</label>
+
+          <label>Lead Prediksi (bulan)</label>
+          <select id="lead">
+            <option value="1">+1</option>
+            <option value="2">+2</option>
+            <option value="3">+3</option>
+          </select>
+
+          <button id="apply">Terapkan</button>
+        </section>
+
+        <!-- Keterangan -->
+        <section>
+          <h2>Keterangan</h2>
+          <ul class="note">
+            <li>Garis <b>solid</b> = historis</li>
+            <li>Garis <b>putus-putus</b> = prediksi</li>
+          </ul>
+        </section>
+      </div>
+    </aside>
+
+    <!-- Main Chart -->
+    <main id="main">
+      <div id="chartWrap" style="padding:20px;">
+        <canvas id="spiChart"></canvas>
+      </div>
+    </main>
+  </div>
+
+  <!-- JS -->
+  <script src="app.js"></script>
+</body>
+</html>

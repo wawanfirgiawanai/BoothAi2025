@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebGIS Fisherman Tracking — Safety/Danger Zones + Alarm</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+    <div id="sidebar">
+      <h2>🚤 Fisherman Tracking</h2>
+      <div class="card">
+        <div class="row"><label>Server Status:</label><span id="server-status" class="pill pill-gray">DISCONNECTED</span></div>
+        <div class="row"><label>Data Source:</label><span id="data-source" class="pill pill-gray">SIMULATOR</span></div>
+      </div>
+      <div class="card">
+        <h3>Zones</h3>
+        <p>Use <b>polygon</b> / <b>rectangle</b> to draw zones.</p>
+        <div class="row">
+          <label>Active Drawing Target:</label>
+          <div>
+            <label class="radio"><input type="radio" name="zoneTarget" value="safe" checked> Safety Zone</label>
+            <label class="radio"><input type="radio" name="zoneTarget" value="danger"> Danger Zone</label>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button id="btn-save">💾 Save Zones</button>
+          <button id="btn-load">📂 Load Zones</button>
+          <button id="btn-clear">🧹 Clear Zones</button>
+        </div>
+        <div class="row">
+          <label>Breach Mode:</label>
+          <span class="pill pill-green">Out of Safety OR Inside Danger</span>
+        </div>
+        <div class="row">
+          <label>Lost GPS Radius:</label>
+          <div><input id="lost-radius" type="number" min="10" step="10" value="200" style="width:90px"> m</div>
+        </div>
+        <audio id="alarm" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+      </div>
+      <div class="card">
+        <h3>Vessel</h3>
+        <div id="vessels"></div>
+      </div>
+      <div class="footer"><small>© 2025 WebGIS • Leaflet + Turf</small></div>
+    </div>
+  </div>
+  <script src="./assets/app.js"></script>
+</body>
+</html>

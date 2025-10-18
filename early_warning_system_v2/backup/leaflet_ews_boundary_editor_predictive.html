@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Leaflet EWS Boundary Editor – Prediktif (Mitigasi Gagal Panen)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+  <style>
+    :root { --bg:#0c0c0c; --card:#151515; --muted:#a0a4ab; --text:#e8eaed; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,Segoe UI,Roboto,Arial; }
+    #app { display:grid; grid-template-columns: 360px 1fr; grid-template-rows: auto 1fr; height:100%; }
+    header { grid-column: 1 / -1; padding:8px 12px; border-bottom:1px solid #262626; background:#0c0c0ccc; backdrop-filter: blur(6px); position:sticky; top:0; z-index:1000; }
+    h1 { font-size:16px; margin:0; }
+    aside { border-right:1px solid #262626; overflow:auto; }
+    .panel { padding:12px; }
+    .section { background:var(--card); border:1px solid #262626; border-radius:10px; padding:10px; margin-bottom:10px; }
+    label { display:block; font-size:12px; color:var(--muted); margin:6px 0 4px; }
+    select, input[type=number], input[type=file], input[type=range] { width:100%; padding:8px; border-radius:8px; border:1px solid #2a2a2a; background:#111; color:var(--text); }
+    button { padding:8px 10px; border-radius:8px; border:1px solid #2a2a2a; background:#1d1d1d; color:var(--text); cursor:pointer; }
+    button:hover { background:#262626; }
+    #map { height:100%; width:100%; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > * { flex:1 1 120px; }
+    .pill { display:inline-block; padding:0 8px; border-radius:999px; border:1px solid #2a2a2a; font-size:12px; }
+    .muted { color:var(--muted); font-size:12px; }
+    .list { font-size:13px; line-height:1.6; }
+    .legend { background:#121212; border:1px solid #2a2a2a; color:#ddd; padding:8px; border-radius:8px; line-height:1.5; }
+    .legend span.sw {display:inline-block;width:12px;height:12px;margin-right:6px;border-radius:2px;}
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { border-bottom:1px solid #2a2a2a; padding:8px 6px; text-align:left; }
+    th { color:#c9cdd1; font-weight:600; position:sticky; top:0; background:#151515; }
+    #forecastNote { font-size:12px; color:#ccc; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <h1>Boundary Editor + EWS Prediktif (Polewali Mandar)</h1>
+        <div class="muted">Historis & Prediksi (SPI) • Export GeoJSON & Alerts</div>
+      </div>
+    </header>
+
+    <aside>
+      <div class="panel">
+
+        <div class="section">
+          <div class="muted">Mode Analisis</div>
+          <div class="row">
+            <div>
+              <label>Mode</label>
+              <select id="mode">
+                <option value="historis" selected>Historis (observasi)</option>
+                <option value="prediksi">Prediksi (ke depan)</option>
+              </select>
+            </div>
+            <div>
+              <label>Bulan</label>
+              <select id="month"></select>
+            </div>
+          </div>
+          <div id="predPanel" style="display:none;margin-top:8px;">
+            <div class="row">
+              <div>
+                <label>Lead (bulan ke depan)</label>
+                <select id="lead">
+                  <option value="1" selected>+1</option>
+                  <option value="2">+2</option>
+                  <option value="3">+3</option>
+                </select>
+              </div>
+              <div>
+                <label>Anomali (%)</label>
+                <input id="anom" type="range" min="-50" max="50" value="0" oninput="anomVal.textContent=this.value+'%';">
+                <div class="muted">Nilai: <span id="anomVal">0%</span></div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>Upload Forecast (opsional | CSV: station,date,rain_mm)</label>
+                <input id="forecastFile" type="file" accept=".csv,text/csv" />
+              </div>
+            </div>
+            <div id="forecastNote">Jika tidak ada file forecast, sistem memprediksi menggunakan <i>klimatologi bulan</i> + anomali (%) Anda.</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="row">
+            <div>
+              <label>SPI (k bulan)</label>
+              <select id="spiK">
+                <option value="1">SPI-1</option>
+                <option value="3" selected>SPI-3</option>
+                <option value="6">SPI-6</option>
+                <option value="12">SPI-12</option>
+              </select>
+            </div>
+            <div>
+              <label>Ambang Kering (≤)</label>
+              <input id="thrDry" type="number" step="0.1" value="-1"/>
+            </div>
+            <div>
+              <label>Ambang Basah (≥)</label>
+              <input id="thrWet" type="number" step="0.1" value="1"/>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="apply">Terapkan</button>
+          </div>
+          <div style="margin-top:8px;">
+            <span class="pill">≤ Kering → Risiko Kekeringan</span>
+            <span class="pill">Normal</span>
+            <span class="pill">≥ Basah → Risiko Genangan</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="row">
+            <button id="seed">Seed Voronoi</button>
+            <button id="clear">Hapus Semua</button>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="export">Export GeoJSON</button>
+            <input id="importFile" type="file" accept=".geojson,application/geo+json,application/json"/>
+          </div>
+          <div class="muted" style="margin-top:6px;">Simpan file hasil untuk digunakan kembali sebagai batas kecamatan.</div>
+        </div>
+
+        <div class="section">
+          <div style="font-weight:600;margin-bottom:6px;">Kecamatan Terdata</div>
+          <div id="stationList" class="list"></div>
+        </div>
+
+        <div class="section">
+          <div style="font-weight:600;margin-bottom:6px;">Daftar Risiko (Historis/Prediksi)</div>
+          <div style="overflow:auto; max-height:260px; border:1px solid #262626; border-radius:8px;">
+            <table id="riskTable">
+              <thead>
+                <tr>
+                  <th>Kecamatan</th><th>Bulan</th><th>Tipe</th><th>Hujan (mm)</th><th>SPI</th><th>Status</th><th>Alasan</th><th>Rekomendasi</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="exportAlertsCsv">Export Alerts CSV</button>
+            <button id="exportAlertsJson">Export Alerts JSON</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div style="font-weight:600;margin-bottom:6px;">Keterangan Warna (SPI)</div>
+          <div class="legend">
+            <div><span class="sw" style="background:#8B0000"></span> Extreme Drought</div>
+            <div><span class="sw" style="background:#B22222"></span> Severe Drought</div>
+            <div><span class="sw" style="background:#DC143C"></span> Moderate Drought</div>
+            <div><span class="sw" style="background:#22C55E"></span> Normal</div>
+            <div><span class="sw" style="background:#2563EB"></span> Moderate Wet</div>
+            <div><span class="sw" style="background:#1E3A8A"></span> Severe Wet</div>
+            <div><span class="sw" style="background:#003399"></span> Extreme Wet</div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <main>
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script>
+    const RAIN = [{"station":"Wonomulyo","lat":-3.459802,"lon":119.237777,"date":"2023-01","rain_mm":61,"area":3693.0,"production":7248.56},{"station":"Wonomulyo","lat":-3.459802,"lon":119.237777,"date":"2023-02","rain_mm":41,"area":3693.0,"production":7248.56},{"station":"Campalagian","lat":-3.460856,"lon":119.15728,"date":"2023-01","rain_mm":80,"area":2347.0,"production":4998.75},{"station":"Campalagian","lat":-3.460856,"lon":119.15728,"date":"2023-02","rain_mm":78,"area":2347.0,"production":4998.75}];
+    const VORONOI = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"station":"Wonomulyo"},"geometry":{"type":"Polygon","coordinates":[[[119.2,-3.5],[119.28,-3.5],[119.28,-3.42],[119.2,-3.42],[119.2,-3.5]]]}},{"type":"Feature","properties":{"station":"Campalagian"},"geometry":{"type":"Polygon","coordinates":[[[119.12,-3.52],[119.2,-3.52],[119.2,-3.44],[119.12,-3.44],[119.12,-3.52]]]}}]};
+
+    function unique(arr) { return [...new Set(arr)]; }
+    function groupBy(arr, key) { return arr.reduce((a,c)=>((a[c[key]]??=[]).push(c),a),{}); }
+    function rollingSum(vals, k) {
+      const out = []; let s=0;
+      for (let i=0;i<vals.length;i++) { s+=Number(vals[i]); if(i>=k) s-=Number(vals[i-k]); out.push(i>=k-1?s:null); }
+      return out;
+    }
+    function zscore(series) {
+      const vals = series.filter(v=>v!=null);
+      if (vals.length<3) return series.map(_=>null);
+      const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+      const sd = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/(vals.length-1));
+      return series.map(v => (v==null||sd===0)?null:(v-mean)/sd);
+    }
+    function severityFromSPI(spi, thrDry, thrWet) {
+      if (spi==null) return {label:'NA', color:'#888'};
+      if (spi <= Math.min(thrDry,-2)) return {label:'Extreme Drought', color:'#8B0000'};
+      if (spi <= Math.min(thrDry,-1.5)) return {label:'Severe Drought', color:'#B22222'};
+      if (spi <= thrDry) return {label:'Moderate Drought', color:'#DC143C'};
+      if (spi >= Math.max(thrWet,2)) return {label:'Extreme Wet', color:'#003399'};
+      if (spi >= Math.max(thrWet,1.5)) return {label:'Severe Wet', color:'#1E3A8A'};
+      if (spi >= thrWet) return {label:'Moderate Wet', color:'#2563EB'};
+      return {label:'Normal', color:'#22C55E'};
+    }
+    function haversine(lat1,lon1,lat2,lon2){
+      const toRad = d=>d*Math.PI/180;
+      const R=6371e3;
+      const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+      const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+      return 2*R*Math.asin(Math.sqrt(a));
+    }
+    function buildSPIforSeries(rows, k){
+      const vals = rows.map(r=>Number(r.rain_mm));
+      const rs = rollingSum(vals, k);
+      const spi = zscore(rs);
+      return rows.map((r,i)=>Object.assign({}, r, {spi_k:k, spi: spi[i]}));
+    }
+    function buildSPI_AllStations(data, k){
+      const byS = groupBy(data, 'station');
+      let out = [];
+      for (const st in byS){
+        const rows = byS[st].slice().sort((a,b)=>a.date.localeCompare(b.date));
+        out = out.concat(buildSPIforSeries(rows, k));
+      }
+      return out;
+    }
+    function yyyymmAdd(ym, plus){
+      const [y,m]=ym.split('-').map(x=>parseInt(x,10));
+      const d=new Date(y, m-1+plus, 1);
+      const yy=d.getFullYear(), mm=String(d.getMonth()+1).padStart(2,'0');
+      return yy+"-"+mm;
+    }
+    function monthOf(ym){ return parseInt(ym.split('-')[1],10); }
+    function climatologyByMonth(data){
+      const byS = groupBy(data,'station');
+      const clim = {};
+      for(const st in byS){
+        const byM = {};
+        for(const r of byS[st]){
+          const m = monthOf(r.date);
+          byM[m] = byM[m] || [];
+          byM[m].push(Number(r.rain_mm));
+        }
+        const meanM = {};
+        for(const m in byM){
+          const arr = byM[m];
+          meanM[m] = arr.reduce((a,b)=>a+b,0)/arr.length;
+        }
+        clim[st] = meanM;
+      }
+      return clim;
+    }
+
+    // Forecast state
+    let FORECAST_FILE = [];
+    function buildForecast(baseYM, lead, anomalyPct, dataHist){
+      const targetYM = yyyymmAdd(baseYM, lead);
+      const clim = climatologyByMonth(dataHist);
+      const stIdx = {};
+      for (const r of dataHist){ stIdx[r.station] = r; }
+      const fByKey = Object.fromEntries(FORECAST_FILE.map(r=>[r.station+'|'+r.date, r]));
+      const out = [];
+      for (const st in stIdx){
+        const meta = stIdx[st];
+        const key = st+'|'+targetYM;
+        let rr = null;
+        if (fByKey[key]) rr = Number(fByKey[key].rain_mm);
+        else {
+          const m=monthOf(targetYM);
+          const climVal = (clim[st] && clim[st][m]!=null) ? clim[st][m] : null;
+          if (climVal==null) continue;
+          rr = climVal * (1 + anomalyPct/100);
+        }
+        out.push({station:st, lat:meta.lat, lon:meta.lon, area:meta.area, production:meta.production, date:targetYM, rain_mm:Number(rr)});
+      }
+      return out;
+    }
+
+    // Stations & UI init
+    const stationPts = Object.values(groupBy(RAIN, 'station')).map(rows=>({
+      station: rows[0].station,
+      lat: Number(rows[0].lat),
+      lon: Number(rows[0].lon)
+    })).sort((a,b)=>a.station.localeCompare(b.station));
+
+    const listEl = document.getElementById('stationList');
+    listEl.innerHTML = stationPts.map(s=>`• ${s.station} <span class="muted">(${s.lat?.toFixed?.(4)||'-'}, ${s.lon?.toFixed?.(4)||'-'})</span>`).join('<br/>');
+
+    const months = unique(RAIN.map(r=>r.date)).sort();
+    const monthSel = document.getElementById('month');
+    months.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; monthSel.appendChild(o); });
+    monthSel.value = months[0];
+
+    const modeSel = document.getElementById('mode');
+    const predPanel = document.getElementById('predPanel');
+    modeSel.addEventListener('change', ()=>{ predPanel.style.display = modeSel.value==='prediksi' ? 'block' : 'none'; });
+
+    const map = L.map('map');
+    const bounds = L.latLngBounds([[-3.70,118.95],[-3.15,119.60]]);
+    map.fitBounds(bounds);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution:'&copy; OSM, Carto' }).addTo(map);
+    const stationLayer = L.layerGroup(stationPts.map(p=> L.marker([p.lat,p.lon]).bindTooltip(p.station))).addTo(map);
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    const drawControl = new L.Control.Draw({ edit: { featureGroup: drawnItems, remove: true }, draw: { polygon: true, polyline: false, rectangle: true, circle: false, marker: false, circlemarker: false } });
+    map.addControl(drawControl);
+
+    function attachNearestStation(layer){
+      const centroid = layer.getBounds().getCenter();
+      let best=null,bestD=Infinity;
+      for(const s of stationPts){
+        const d=haversine(centroid.lat, centroid.lng, s.lat, s.lon);
+        if(d<bestD){bestD=d; best=s;}
+      }
+      const props = layer.feature && layer.feature.properties ? layer.feature.properties : {};
+      props.station = props.station || (best ? best.station : '');
+      layer.feature = layer.feature || { type:'Feature', properties: props };
+      layer.bindPopup(`<b>${props.station||'Tanpa Nama'}</b><br/><span class='muted'>Klik Edit untuk mengubah.</span>`);
+    }
+    map.on(L.Draw.Event.CREATED, e=>{ attachNearestStation(e.layer); drawnItems.addLayer(e.layer); });
+    map.on('draw:edited', e=>{ e.layers.eachLayer(attachNearestStation); });
+
+    document.getElementById('seed').addEventListener('click', ()=>{
+      const vor = L.geoJSON(VORONOI, { style: { color:'#777', weight:1, fillOpacity:0.15 } });
+      vor.eachLayer(layer=>{ attachNearestStation(layer); drawnItems.addLayer(layer); });
+    });
+    document.getElementById('clear').addEventListener('click', ()=> drawnItems.clearLayers());
+
+    document.getElementById('export').addEventListener('click', ()=>{
+      const fc = drawnItems.toGeoJSON();
+      const blob = new Blob([JSON.stringify(fc)], {type:'application/geo+json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='batas_kecamatan_polman.geojson'; a.click();
+      URL.revokeObjectURL(url);
+    });
+    document.getElementById('importFile').addEventListener('change', (ev)=>{
+      const f=ev.target.files[0]; if(!f) return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        try{
+          const gj=JSON.parse(reader.result);
+          const lyr=L.geoJSON(gj);
+          lyr.eachLayer(layer=>{ attachNearestStation(layer); drawnItems.addLayer(layer); });
+          if(drawnItems.getLayers().length) map.fitBounds(drawnItems.getBounds());
+        }catch(err){ alert('File tidak valid GeoJSON'); }
+      };
+      reader.readAsText(f);
+    });
+
+    document.getElementById('forecastFile').addEventListener('change', ev=>{
+      const f=ev.target.files[0]; if(!f) return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        try{
+          const txt=reader.result.trim();
+          const lines=txt.split(/\r?\n/);
+          const head=lines[0].split(',');
+          const col={station:head.indexOf('station'), date:head.indexOf('date'), rain_mm:head.indexOf('rain_mm')};
+          if(col.station<0||col.date<0||col.rain_mm<0) throw new Error('Kolom wajib: station,date,rain_mm');
+          FORECAST_FILE=lines.slice(1).filter(x=>x).map(line=>{
+            const p=line.split(',');
+            return {station:p[col.station], date:p[col.date], rain_mm:Number(p[col.rain_mm])};
+          });
+          alert('Forecast CSV dimuat dan akan digunakan jika tanggal cocok.');
+        }catch(e){ alert('Gagal baca forecast CSV: '+e.message); }
+      };
+      reader.readAsText(f);
+    });
+
+    function alasanDanSaran(label){
+      if(label.includes('Drought')) return {alasan:'SPI rendah, hujan di bawah normal', saran:'Atur irigasi, mulsa, varietas tahan kering'};
+      if(label.includes('Wet')) return {alasan:'SPI tinggi, hujan berlebih', saran:'Perbaiki drainase, fungisida preventif, hindari pupuk N berlebih'};
+      return {alasan:'Curah hujan mendekati normal', saran:'Pertahankan praktik budidaya'};
+    }
+    function cropFailureStatus(rec, spi, thrDry, thrWet){
+      if(!rec || spi==null) return {status:'NA', alert:false};
+      const yieldVal = (rec.production && rec.area) ? (rec.production/rec.area) : null;
+      let status='Aman', alert=false;
+      if (spi <= thrDry && rec.rain_mm < 50){ status='Risiko Gagal Panen (Kering)'; alert=true; }
+      else if (spi >= thrWet+0.5 && rec.rain_mm > 120){ status='Risiko Gagal Panen (Genangan)'; alert=true; }
+      else if (yieldVal!=null && yieldVal < 1.0){ status='Produksi Rendah – Waspada'; alert=true; }
+      return {status, alert};
+    }
+
+    let layerPolys=null;
+    function apply(){
+      const mode=document.getElementById('mode').value;
+      const ym=document.getElementById('month').value;
+      const k=Number(document.getElementById('spiK').value);
+      const thrDry=Number(document.getElementById('thrDry').value);
+      const thrWet=Number(document.getElementById('thrWet').value);
+      let renderData=[], labelType='Historis';
+
+      if(mode==='historis'){
+        const spied = buildSPI_AllStations(RAIN, k);
+        renderData = spied.filter(r=>r.date===ym);
+      } else {
+        const lead=Number(document.getElementById('lead').value);
+        const anom=Number(document.getElementById('anom').value);
+        const forecast = buildForecast(ym, lead, anom, RAIN);
+        const combined = RAIN.concat(forecast);
+        const spiedAll = buildSPI_AllStations(combined, k);
+        const targetYM = yyyymmAdd(ym, lead);
+        renderData = spiedAll.filter(r=>r.date===targetYM);
+        labelType = 'Prediksi +' + lead + ' bln';
+      }
+
+      const idx = Object.fromEntries(renderData.map(r=>[r.station, r]));
+
+      if(layerPolys) layerPolys.remove();
+      layerPolys = L.geoJSON(VORONOI, {
+        style: (feat)=>{
+          const st=feat.properties.station;
+          const rec=idx[st];
+          const sev=severityFromSPI(rec?rec.spi:null, thrDry, thrWet);
+          return { color:'#333', weight:1, fillOpacity:0.72, fillColor:sev.color };
+        },
+        onEachFeature: (feat, layer)=>{
+          const st=feat.properties.station;
+          const rec=idx[st];
+          const sev=severityFromSPI(rec?rec.spi:null, thrDry, thrWet);
+          const ars=alasanDanSaran(sev.label);
+          const spiVal = rec && rec.spi!=null ? rec.spi.toFixed(2) : 'n/a';
+          const rain = rec ? rec.rain_mm : '-';
+          const cf = cropFailureStatus(rec, rec?rec.spi:null, thrDry, thrWet);
+          const lab = rec ? rec.date : (mode==='historis'?ym:yyyymmAdd(ym, Number(document.getElementById('lead').value)));
+          const yieldVal = rec && rec.production && rec.area ? (rec.production/rec.area).toFixed(2) : '-';
+          layer.bindPopup(`
+            <div style='min-width:240px'>
+              <div style='font-weight:600'>${st}</div>
+              <div class='muted'>${labelType} • Bulan: ${lab} • SPI-${k}</div>
+              <div>Curah Hujan: <b>${rain}</b> mm</div>
+              <div>SPI: <b>${spiVal}</b> <span style='color:${sev.color}'>(${sev.label})</span></div>
+              <div>Yield (estim.): <b>${yieldVal}</b> ton/ha</div>
+              <div style='margin-top:4px'><b>Status:</b> <span style='color:${cf.alert?'#ff6060':'#22C55E'}'>${cf.status}</span></div>
+              <div><b>Alasan:</b> ${ars.alasan}</div>
+              <div><b>Saran:</b> ${ars.saran}</div>
+            </div>
+          `);
+        }
+      }).addTo(map);
+
+      // Table
+      const tbody=document.querySelector('#riskTable tbody'); tbody.innerHTML='';
+      const rows = Object.values(idx).sort((a,b)=> (a.spi??-999)-(b.spi??-999));
+      for(const r of rows){
+        const sev=severityFromSPI(r.spi, thrDry, thrWet);
+        const ars=alasanDanSaran(sev.label);
+        const tr=document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.station}</td>
+          <td>${r.date}</td>
+          <td>${labelType}</td>
+          <td>${r.rain_mm}</td>
+          <td>${r.spi==null?'':r.spi.toFixed(2)}</td>
+          <td><span class="pill" style="border-color:${sev.color}; color:${sev.color}">${sev.label}</span></td>
+          <td>${ars.alasan}</td>
+          <td>${ars.saran}</td>`;
+        tbody.appendChild(tr);
+      }
+
+      function exportAlerts(fmt){
+        const header=["Kecamatan","Bulan","Tipe","CurahHujan","SPI","Status","Alasan","Rekomendasi"];
+        const data=rows.map(r=>{
+          const sev=severityFromSPI(r.spi, thrDry, thrWet);
+          const ars=alasanDanSaran(sev.label);
+          return [r.station,r.date,labelType,r.rain_mm,(r.spi==null?'':r.spi.toFixed(2)),sev.label,ars.alasan,ars.saran];
+        });
+        if(fmt==='csv'){
+          const csv=[header].concat(data).map(row=>row.join(',')).join('\n');
+          const blob=new Blob([csv],{type:'text/csv'});
+          const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='alerts_'+labelType.replace(/\s+/g,'_')+'.csv'; a.click();
+        } else {
+          const blob=new Blob([JSON.stringify({header,data})],{type:'application/json'});
+          const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='alerts_'+labelType.replace(/\s+/g,'_')+'.json'; a.click();
+        }
+      }
+      document.getElementById('exportAlertsCsv').onclick=()=>exportAlerts('csv');
+      document.getElementById('exportAlertsJson').onclick=()=>exportAlerts('json');
+    }
+
+    document.getElementById('apply').addEventListener('click', apply);
+    document.getElementById('mode').addEventListener('change', apply);
+    document.getElementById('lead').addEventListener('change', apply);
+    document.getElementById('anom').addEventListener('input', ()=>{ if(document.getElementById('mode').value==='prediksi') apply(); });
+
+    // Initial render
+    apply();
+  </script>
+</body>
+</html>

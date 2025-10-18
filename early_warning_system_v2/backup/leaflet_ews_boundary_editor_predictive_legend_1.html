@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Leaflet EWS Boundary Editor – Prediktif (Mitigasi Gagal Panen)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+  <style>
+    :root { --bg:#0c0c0c; --card:#151515; --muted:#a0a4ab; --text:#e8eaed; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,Segoe UI,Roboto,Arial; }
+    #app { display:grid; grid-template-columns: 360px 1fr; grid-template-rows: auto 1fr; height:100%; transition:all 0.3s ease; }
+    #app.hide-aside { grid-template-columns: 0 1fr; }
+    #app.hide-aside aside { display:none; }
+    header { grid-column: 1 / -1; padding:8px 12px; border-bottom:1px solid #262626; background:#0c0c0ccc; backdrop-filter: blur(6px); position:sticky; top:0; z-index:1000; }
+    h1 { font-size:16px; margin:0; }
+    aside { border-right:1px solid #262626; overflow:auto; }
+    .panel { padding:12px; }
+    .section { background:var(--card); border:1px solid #262626; border-radius:10px; padding:10px; margin-bottom:10px; }
+    label { display:block; font-size:12px; color:var(--muted); margin:6px 0 4px; }
+    select, input[type=number], input[type=file], input[type=range] { width:100%; padding:8px; border-radius:8px; border:1px solid #2a2a2a; background:#111; color:var(--text); }
+    button { padding:8px 10px; border-radius:8px; border:1px solid #2a2a2a; background:#1d1d1d; color:var(--text); cursor:pointer; }
+    button:hover { background:#262626; }
+    #map { height:100%; width:100%; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > * { flex:1 1 120px; }
+    .pill { display:inline-block; padding:0 8px; border-radius:999px; border:1px solid #2a2a2a; font-size:12px; }
+    .muted { color:var(--muted); font-size:12px; }
+    .list { font-size:13px; line-height:1.6; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { border-bottom:1px solid #2a2a2a; padding:8px 6px; text-align:left; }
+    th { color:#c9cdd1; font-weight:600; position:sticky; top:0; background:#151515; }
+    #forecastNote { font-size:12px; color:#ccc; }
+    .legend { background:#121212; border:1px solid #2a2a2a; color:#ddd; padding:8px; border-radius:8px; line-height:1.5; font-size:12px; }
+    .legend span.sw {display:inline-block;width:12px;height:12px;margin-right:6px;border-radius:2px;}
+    #toggleBtn { padding:4px 8px; font-size:14px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="toggleBtn">☰</button>
+          <h1>Boundary Editor + EWS Prediktif (Polewali Mandar)</h1>
+        </div>
+        <div class="muted">Historis & Prediksi (SPI) • Export GeoJSON & Alerts</div>
+      </div>
+    </header>
+
+    <aside>
+      <div class="panel">
+        <!-- Panel isi sama dengan yang Anda kirim (Mode, Prediksi, SPI, Seed, Export, Tabel Risiko) -->
+        <!-- Legend SPI sudah dipindah ke peta, jadi di sidebar dihapus -->
+        <div class="section">
+          <div class="muted">Mode Analisis</div>
+          <div class="row">
+            <div><label>Mode</label><select id="mode"><option value="historis" selected>Historis</option><option value="prediksi">Prediksi</option></select></div>
+            <div><label>Bulan</label><select id="month"></select></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="row">
+            <button id="seed">Seed Voronoi</button>
+            <button id="clear">Hapus Semua</button>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <button id="export">Export GeoJSON</button>
+            <input id="importFile" type="file" accept=".geojson,application/geo+json,application/json"/>
+          </div>
+        </div>
+        <div class="section">
+          <div style="font-weight:600;margin-bottom:6px;">Daftar Risiko</div>
+          <div style="overflow:auto; max-height:260px; border:1px solid #262626; border-radius:8px;">
+            <table id="riskTable"><thead><tr><th>Kecamatan</th><th>Bulan</th><th>Tipe</th><th>Hujan</th><th>SPI</th><th>Status</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script>
+    // === Inisialisasi peta ===
+    const map = L.map('map').setView([-3.45,119.25],10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OSM'}).addTo(map);
+
+    // === Layer untuk poligon & kontrol Draw ===
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    const drawControl = new L.Control.Draw({
+      edit: { featureGroup: drawnItems },
+      draw: { polygon: true, rectangle: true, circle: false, marker: false, polyline: false }
+    });
+    map.addControl(drawControl);
+
+    // Event: tambah poligon
+    map.on(L.Draw.Event.CREATED, e=>{
+      drawnItems.addLayer(e.layer);
+    });
+    // Event: edit poligon
+    map.on(L.Draw.Event.EDITED, e=>{
+      e.layers.eachLayer(layer=>{ /* bisa tambahkan logika edit */ });
+    });
+
+    // Tombol Seed (contoh dummy poligon)
+    document.getElementById('seed').addEventListener('click', ()=>{
+      const poly = L.polygon([[-3.5,119.2],[-3.4,119.3],[-3.3,119.2]]);
+      drawnItems.addLayer(poly);
+    });
+    document.getElementById('clear').addEventListener('click', ()=>drawnItems.clearLayers());
+
+    // === Legend di peta ===
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function (map) {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = `
+        <strong>Keterangan SPI</strong><br>
+        <span class="sw" style="background:#8B0000"></span> Extreme Drought<br>
+        <span class="sw" style="background:#B22222"></span> Severe Drought<br>
+        <span class="sw" style="background:#DC143C"></span> Moderate Drought<br>
+        <span class="sw" style="background:#22C55E"></span> Normal<br>
+        <span class="sw" style="background:#2563EB"></span> Moderate Wet<br>
+        <span class="sw" style="background:#1E3A8A"></span> Severe Wet<br>
+        <span class="sw" style="background:#003399"></span> Extreme Wet<br>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+
+    // === Tombol toggle sidebar ===
+    document.getElementById('toggleBtn').addEventListener('click', ()=>{
+      document.getElementById('app').classList.toggle('hide-aside');
+      map.invalidateSize();
+    });
+  </script>
+</body>
+</html>

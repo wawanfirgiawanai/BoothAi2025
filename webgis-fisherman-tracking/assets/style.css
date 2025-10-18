@@ -1,0 +1,28 @@
+
+:root{--bg:#0f172a;--panel:#111827;--card:#1f2937;--text:#e5e7eb;--muted:#9ca3af;--ok:#16a34a;--warn:#ef4444}
+*{box-sizing:border-box}
+html,body,#app{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto}
+#app{display:grid;grid-template-columns:1fr 380px;background:var(--bg);color:var(--text)}
+#map{height:100%;width:100%}
+#sidebar{background:var(--panel);padding:14px;overflow:auto;border-left:1px solid #0b1220}
+h2{margin:4px 0 12px 0} h3{margin:8px 0}
+p{color:var(--muted);margin:6px 0 10px 0;line-height:1.4}
+.card{background:var(--card);border:1px solid #0b1220;border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0;gap:10px;flex-wrap:wrap}
+label{color:#cbd5e1}
+.pill{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #00000040;display:inline-block}
+.pill-gray{background:#111827} .pill-green{background:#052e1b;border-color:#0c5132;color:#86efac} .pill-red{background:#3b0a0a;border-color:#7f1d1d;color:#fecaca}
+.radio{margin-right:8px;font-size:14px}
+.btn-group{display:flex;gap:8px;margin:8px 0 2px 0;flex-wrap:wrap}
+button{background:#0b1220;border:1px solid #0a0f1a;color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer;transition:.15s}
+button:hover{filter:brightness(1.15)}
+#vessels .item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:10px;border:1px solid #091021;margin:6px 0;background:#0d1426}
+.badge{padding:2px 6px;border-radius:8px;font-size:12px;border:1px solid #ffffff1a}
+.badge-ok{background:#052e1b;color:#86efac;border-color:#14532d} .badge-warn{background:#3b0a0a;color:#fecaca;border-color:#7f1d1d}
+.footer{opacity:.8;text-align:center;margin-top:10px}
+.leaflet-container{background:#000}
+.boat-icon{position:relative;width:42px;height:42px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.boat-icon.ok{background:rgba(16,185,129,.25);outline:3px solid rgba(16,185,129,.35)}
+.boat-icon.alert{background:rgba(239,68,68,.25);outline:3px solid rgba(239,68,68,.35)}
+.boat-icon img{width:28px;height:28px;object-fit:cover;border-radius:4px}
+.danger-label{color:#fff;background:rgba(239,68,68,.85);padding:3px 6px;border-radius:6px;border:1px solid rgba(0,0,0,.35);font-weight:700;font-size:12px;text-shadow:0 1px 1px rgba(0,0,0,.35)}
