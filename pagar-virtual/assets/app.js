@@ -137,7 +137,7 @@
     const status = evaluateStatus({lat, lng: lon});
     if(!status.ok){
       entry.marker.bindPopup(`<b>${name}</b><br>${status.text}`).openPopup();
-      // try { alarm.currentTime = 0; alarm.play().catch(()=>{}); } catch(e){}
+      try { alarm.currentTime = 0; alarm.play().catch(()=>{}); } catch(e){}
       entry.marker.setIcon(cowIconAlert);
     }else{
       entry.marker.closePopup();
